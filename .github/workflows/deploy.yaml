@@ -64,14 +64,13 @@ jobs:
             --image $ACR_LOGIN_SERVER/$IMAGE_NAME:${{ github.sha }}
 
       - name: Create Pull Request to Main
-        uses: peter-evans/create-pull-request@v5
+        uses: repo-sync/pull-request@v2
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          title: "Promote to Production"
-          body: "Auto-generated PR to promote version `${{ github.sha }}` to `main`."
-          base: main
-          branch: test
-          delete-branch: false
+          source_branch: test
+          destination_branch: main
+          pr_title: "Promote to Production"
+          pr_body: "Auto-generated PR to promote version `${{ github.sha }}` to main."
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
   deploy_prod:
     name: Deploy to PROD
@@ -83,6 +82,9 @@ jobs:
       url: https://modernweb-prod.azurecontainerapps.io
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
       - name: Log in to Azure
         uses: azure/login@v1
         with:
