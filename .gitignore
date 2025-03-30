@@ -3,6 +3,25 @@
 
 # Additional
 *.db
+.env.*
+
+# Ignore all Terraform secrets and config
+infra/*.tfvars
+infra/*.tfstate
+infra/.terraform/
+
+# Terraform state files
+*.tfstate
+*.tfstate.*
+.terraform/
+
+# Lock file (optional to ignore, but can be committed if team-wide versioning is desired)
+.terraform.lock.hcl
+
+# Local secret environments
+infra/.env
+infra/.env.local
+infra/terraform.tfvars
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
