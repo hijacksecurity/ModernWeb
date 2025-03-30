@@ -1,4 +1,4 @@
-name: Build and Deploy to Azure Container App
+name: CI/CD: TEST → PROD → PR to Main
 
 on:
   push:
@@ -17,9 +17,12 @@ env:
   PROD_CONTAINER_APP_NAME: modernweb-prod
 
 jobs:
-  build-and-deploy-test:
-    name: Build and Deploy to TEST
+  build:
+    name: Build and Push to ACR
     runs-on: ubuntu-latest
+
+    outputs:
+      image_sha: ${{ steps.set_sha.outputs.sha }}
 
     steps:
       - name: Checkout code
@@ -39,16 +42,36 @@ jobs:
           docker build -t $ACR_LOGIN_SERVER/$IMAGE_NAME:${{ github.sha }} .
           docker push $ACR_LOGIN_SERVER/$IMAGE_NAME:${{ github.sha }}
 
+      - name: Set image SHA output
+        id: set_sha
+        run: echo "sha=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+  deploy_test:
+    name: Deploy to TEST
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: TEST
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Log in to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
       - name: Deploy to Azure Container App (TEST)
         run: |
           az containerapp update \
             --name $TEST_CONTAINER_APP_NAME \
             --resource-group $RESOURCE_GROUP \
-            --image $ACR_LOGIN_SERVER/$IMAGE_NAME:${{ github.sha }}
+            --image $ACR_LOGIN_SERVER/$IMAGE_NAME:${{ needs.build.outputs.image_sha }}
 
-  deploy-prod:
+  deploy_prod:
     name: Deploy to PROD
-    needs: build-and-deploy-test
+    needs: deploy_test
     runs-on: ubuntu-latest
     environment:
       name: PROD
@@ -68,12 +91,13 @@ jobs:
           az containerapp update \
             --name $PROD_CONTAINER_APP_NAME \
             --resource-group $RESOURCE_GROUP \
-            --image $ACR_LOGIN_SERVER/$IMAGE_NAME:${{ github.sha }}
+            --image $ACR_LOGIN_SERVER/$IMAGE_NAME:${{ needs.build.outputs.image_sha }}
 
-  promote-to-main:
-    name: Create PR from test → main
-    needs: deploy-prod
+  promote_to_main:
+    name: Create Pull Request: test → main
+    needs: deploy_prod
     runs-on: ubuntu-latest
+
     steps:
       - name: Create Pull Request
         uses: repo-sync/pull-request@v2
@@ -81,5 +105,5 @@ jobs:
           source_branch: test
           destination_branch: main
           pr_title: "Promote stable version to main"
-          pr_body: "This PR promotes commit `${{ github.sha }}` to `main` after successful production deployment."
+          pr_body: "Auto-generated PR for image SHA `${{ needs.build.outputs.image_sha }}`"
           github_token: ${{ secrets.GITHUB_TOKEN }}
