@@ -53,6 +53,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: TEST
+      url: https://modernweb-app.gentleglacier-8011cd2d.eastus.azurecontainerapps.io/
 
     steps:
       - name: Checkout code
@@ -72,11 +73,11 @@ jobs:
 
   deploy_prod:
     name: Deploy to PROD
-    needs: deploy_test
+    needs: [build, deploy_test]
     runs-on: ubuntu-latest
     environment:
       name: PROD
-      url: https://modernweb-prod.azurecontainerapps.io
+      url: https://modernweb-prod.gentleglacier-8011cd2d.eastus.azurecontainerapps.io/
 
     steps:
       - name: Checkout code
