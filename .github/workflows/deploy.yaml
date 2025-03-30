@@ -95,16 +95,20 @@ jobs:
             --image $ACR_LOGIN_SERVER/$IMAGE_NAME:${{ needs.build.outputs.image_sha }}
 
   promote_to_main:
-    name: Create Pull Request (test → main)
+    name: Create Pull Request test → main
     needs: deploy_prod
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v3  # <-- Required so the repo exists!
+
       - name: Create Pull Request
         uses: repo-sync/pull-request@v2
         with:
           source_branch: test
           destination_branch: main
-          pr_title: "Promote stable version to main"
-          pr_body: "Auto-generated PR for image SHA `${{ needs.build.outputs.image_sha }}`"
+          pr_title: Promote stable version to main
+          pr_body: |
+            Auto-generated PR for image SHA `${{ needs.build.outputs.image_sha }}`
           github_token: ${{ secrets.GITHUB_TOKEN }}
