@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI, Depends
 from sqlalchemy.orm import Session
 from .db import models, database
@@ -15,7 +17,10 @@ def get_db():
 
 @app.get("/")
 def read_root():
-    return {"message": "Hello from FastAPI with DB"}
+    return {"message": "Hello from FastAPI with DB",
+            "status": "running",
+            "version": "0.1.6",
+            "environment": os.getenv("ENV")}
 
 @app.post("/assets/")
 def create_asset(hostname: str, ip_address: str, db: Session = Depends(get_db)):
