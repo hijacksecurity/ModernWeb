@@ -1,7 +1,7 @@
 import os
 from enum import Enum
 from pydantic_settings import BaseSettings
-from pydantic import computed_field
+from pydantic import Field
 
 
 class Environment(str, Enum):
@@ -11,7 +11,7 @@ class Environment(str, Enum):
 
 
 class Settings(BaseSettings):
-    ENV: Environment = Environment.DEV
+    ENV: Environment = Field(default=Environment.DEV)
 
     SQLITE_PATH: str = "../dev.db"
 
@@ -24,15 +24,11 @@ class Settings(BaseSettings):
     class Config:
         env_file = f".env.{os.getenv('ENV', 'dev')}"  # Dynamically loads .env.dev, .env.test, etc.
 
-    @computed_field
     @property
     def DB_URL(self) -> str:
         if self.ENV == Environment.DEV:
             return f"sqlite:///{self.SQLITE_PATH}"
-        else:
-            return (
-                f"postgresql://{self.DB_USER}:{self.DB_PASS}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
-            )
+        return f"postgresql://{self.DB_USER}:{self.DB_PASS}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
 
 
 settings = Settings()

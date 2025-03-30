@@ -29,3 +29,8 @@ variable "db_admin_password" {
   sensitive   = true
 }
 
+variable "prod_pg_admin_password" {
+  description = "The admin password for the PROD PostgreSQL server"
+  type        = string
+  sensitive   = true
+}

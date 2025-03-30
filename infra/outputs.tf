@@ -22,3 +22,15 @@ output "acr_admin_password" {
 output "container_app_url" {
   value = azurerm_container_app.app.latest_revision_fqdn
 }
+
+output "prod_db_host" {
+  value = azurerm_postgresql_flexible_server.prod.fqdn
+}
+
+output "prod_db_name" {
+  value = azurerm_postgresql_flexible_server_database.prod.name
+}
+
+output "prod_container_app_url" {
+  value = azurerm_container_app.prod.latest_revision_fqdn
+}

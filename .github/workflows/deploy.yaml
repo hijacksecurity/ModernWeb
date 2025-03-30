@@ -2,7 +2,9 @@ name: Build and Deploy to Azure Container App
 
 on:
   push:
-    branches: [test, main]
+    branches:
+      - test
+      - main
 
 env:
   ACR_NAME: modernwebacr
@@ -10,11 +12,12 @@ env:
   IMAGE_NAME: modernweb-api
   RESOURCE_GROUP: modern-web-rg
   TEST_CONTAINER_APP_NAME: modernweb-app
-  # PROD_CONTAINER_APP_NAME: modernweb-prod
+  PROD_CONTAINER_APP_NAME: modernweb-prod
 
 jobs:
   build:
-    name: Build and Push to ACR
+    if: github.ref == 'refs/heads/test'
+    name: Build and Push to ACR (TEST only)
     runs-on: ubuntu-latest
 
     steps:
@@ -54,24 +57,23 @@ jobs:
             --resource-group $RESOURCE_GROUP \
             --image $ACR_LOGIN_SERVER/$IMAGE_NAME:${{ github.sha }}
 
-  # deploy_prod:
-  #   name: Deploy to PROD
-  #   needs: build
-  #   if: github.ref == 'refs/heads/main'
-  #   runs-on: ubuntu-latest
-  #   environment:
-  #     name: prod
-  #     url: https://modernweb-prod.azurecontainerapps.io
-  #
-  #   steps:
-  #     - name: Log in to Azure
-  #       uses: azure/login@v1
-  #       with:
-  #         creds: ${{ secrets.AZURE_CREDENTIALS }}
-  #
-  #     - name: Deploy to Azure Container App (PROD)
-  #       run: |
-  #         az containerapp update \
-  #           --name $PROD_CONTAINER_APP_NAME \
-  #           --resource-group $RESOURCE_GROUP \
-  #           --image $ACR_LOGIN_SERVER/$IMAGE_NAME:${{ github.sha }}
+  deploy_prod:
+    name: Deploy to PROD
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: prod
+      url: https://modernweb-prod.azurecontainerapps.io
+
+    steps:
+      - name: Log in to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy to Azure Container App (PROD)
+        run: |
+          az containerapp update \
+            --name $PROD_CONTAINER_APP_NAME \
+            --resource-group $RESOURCE_GROUP \
+            --image $ACR_LOGIN_SERVER/$IMAGE_NAME:${{ github.sha }}
