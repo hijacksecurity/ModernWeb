@@ -17,7 +17,7 @@ def get_db():
 def read_root():
     return {"message": "Hello from FastAPI with DB",
             "status": "running",
-            "version": "0.1"}
+            "version": "0.1.1"}
 
 @app.post("/assets/")
 def create_asset(hostname: str, ip_address: str, db: Session = Depends(get_db)):

@@ -2,9 +2,7 @@ name: Build and Deploy to Azure Container App
 
 on:
   push:
-    branches:
-      - test
-      - main
+    branches: [test, main]
 
 env:
   ACR_NAME: modernwebacr
@@ -16,9 +14,9 @@ env:
 
 jobs:
   build:
-    if: github.ref == 'refs/heads/test'
-    name: Build and Push to ACR (TEST only)
+    name: Build and Push to ACR
     runs-on: ubuntu-latest
+    environment: TEST
 
     steps:
       - name: Checkout code
@@ -32,17 +30,21 @@ jobs:
       - name: Log in to ACR
         run: az acr login --name $ACR_NAME
 
-      - name: Change to backend directory
+      - name: Change to backend directory and build image
         working-directory: ./backend
         run: |
           docker build -t $ACR_LOGIN_SERVER/$IMAGE_NAME:${{ github.sha }} .
           docker push $ACR_LOGIN_SERVER/$IMAGE_NAME:${{ github.sha }}
+
+      - name: Export image tag for downstream jobs
+        run: echo "IMAGE_TAG=${{ github.sha }}" >> $GITHUB_ENV
 
   deploy_test:
     name: Deploy to TEST
     needs: build
     if: github.ref == 'refs/heads/test'
     runs-on: ubuntu-latest
+    environment: TEST
 
     steps:
       - name: Log in to Azure
@@ -55,14 +57,15 @@ jobs:
           az containerapp update \
             --name $TEST_CONTAINER_APP_NAME \
             --resource-group $RESOURCE_GROUP \
-            --image $ACR_LOGIN_SERVER/$IMAGE_NAME:${{ github.sha }}
+            --image $ACR_LOGIN_SERVER/$IMAGE_NAME:${{ env.IMAGE_TAG }}
 
   deploy_prod:
     name: Deploy to PROD
+    needs: build
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment:
-      name: prod
+      name: PROD
       url: https://modernweb-prod.azurecontainerapps.io
 
     steps:
@@ -76,4 +79,4 @@ jobs:
           az containerapp update \
             --name $PROD_CONTAINER_APP_NAME \
             --resource-group $RESOURCE_GROUP \
-            --image $ACR_LOGIN_SERVER/$IMAGE_NAME:${{ github.sha }}
+            --image $ACR_LOGIN_SERVER/$IMAGE_NAME:${{ env.IMAGE_TAG }}
