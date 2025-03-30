@@ -1,8 +1,9 @@
-name: CI/CD: TEST → PROD → PR to Main
+name: CI/CD BUILD → TEST → PROD → PR to main
 
 on:
   push:
-    branches: [test]
+    branches:
+      - test
 
 permissions:
   contents: write
@@ -44,7 +45,7 @@ jobs:
 
       - name: Set image SHA output
         id: set_sha
-        run: echo "sha=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+        run: echo "sha=${GITHUB_SHA}" >> $GITHUB_OUTPUT
 
   deploy_test:
     name: Deploy to TEST
@@ -94,7 +95,7 @@ jobs:
             --image $ACR_LOGIN_SERVER/$IMAGE_NAME:${{ needs.build.outputs.image_sha }}
 
   promote_to_main:
-    name: Create Pull Request: test → main
+    name: Create Pull Request (test → main)
     needs: deploy_prod
     runs-on: ubuntu-latest
 
