@@ -19,7 +19,7 @@ def get_db():
 def read_root():
     return {"message": "Hello from FastAPI with DB",
             "status": "running",
-            "version": "0.1.6",
+            "version": "0.1.7",
             "environment": os.getenv("ENV")}
 
 @app.post("/assets/")
