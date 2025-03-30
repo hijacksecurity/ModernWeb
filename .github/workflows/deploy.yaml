@@ -2,7 +2,7 @@ name: Build and Deploy to Azure Container App
 
 on:
   push:
-    branches: [test, main]
+    branches: [test]
 
 permissions:
   contents: write
@@ -17,10 +17,9 @@ env:
   PROD_CONTAINER_APP_NAME: modernweb-prod
 
 jobs:
-  build:
-    name: Build and Push to ACR
+  build-and-deploy-test:
+    name: Build and Deploy to TEST
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/test'
 
     steps:
       - name: Checkout code
@@ -40,13 +39,20 @@ jobs:
           docker build -t $ACR_LOGIN_SERVER/$IMAGE_NAME:${{ github.sha }} .
           docker push $ACR_LOGIN_SERVER/$IMAGE_NAME:${{ github.sha }}
 
-  deploy_test:
-    name: Deploy to TEST
-    needs: build
-    if: github.ref == 'refs/heads/test'
+      - name: Deploy to Azure Container App (TEST)
+        run: |
+          az containerapp update \
+            --name $TEST_CONTAINER_APP_NAME \
+            --resource-group $RESOURCE_GROUP \
+            --image $ACR_LOGIN_SERVER/$IMAGE_NAME:${{ github.sha }}
+
+  deploy-prod:
+    name: Deploy to PROD
+    needs: build-and-deploy-test
     runs-on: ubuntu-latest
     environment:
-      name: TEST
+      name: PROD
+      url: https://modernweb-prod.azurecontainerapps.io
 
     steps:
       - name: Checkout code
@@ -57,39 +63,23 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Deploy to Azure Container App (TEST)
-        run: |
-          az containerapp update \
-            --name $TEST_CONTAINER_APP_NAME \
-            --resource-group $RESOURCE_GROUP \
-            --image $ACR_LOGIN_SERVER/$IMAGE_NAME:${{ github.sha }}
-
-      - name: Create Pull Request to Promote to Main
-        uses: repo-sync/pull-request@v2
-        with:
-          source_branch: test
-          destination_branch: main
-          pr_title: "Promote to Production"
-          pr_body: "Auto-generated PR to promote version `${{ github.sha }}` to main."
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-
-  deploy_prod:
-    name: Deploy to PROD
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    environment:
-      name: PROD
-      url: https://modernweb-prod.azurecontainerapps.io
-
-    steps:
-      - name: Log in to Azure
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
       - name: Deploy to Azure Container App (PROD)
         run: |
           az containerapp update \
             --name $PROD_CONTAINER_APP_NAME \
             --resource-group $RESOURCE_GROUP \
-            --image $ACR_LOGIN_SERVER/$IMAGE_NAME:${{ github.event.pull_request.head.sha || github.sha }}
+            --image $ACR_LOGIN_SERVER/$IMAGE_NAME:${{ github.sha }}
+
+  promote-to-main:
+    name: Create PR from test → main
+    needs: deploy-prod
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create Pull Request
+        uses: repo-sync/pull-request@v2
+        with:
+          source_branch: test
+          destination_branch: main
+          pr_title: "Promote stable version to main"
+          pr_body: "This PR promotes commit `${{ github.sha }}` to `main` after successful production deployment."
+          github_token: ${{ secrets.GITHUB_TOKEN }}
