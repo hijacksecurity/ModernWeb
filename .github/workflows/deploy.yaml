@@ -1,8 +1,9 @@
-name: Build and Deploy to Azure Container App
+name: CI/CD BUILD → TEST → PROD → PR to main
 
 on:
   push:
-    branches: [test, main]
+    branches:
+      - test
 
 permissions:
   contents: write
@@ -20,6 +21,9 @@ jobs:
   build:
     name: Build and Push to ACR
     runs-on: ubuntu-latest
+
+    outputs:
+      image_sha: ${{ steps.set_sha.outputs.sha }}
 
     steps:
       - name: Checkout code
@@ -39,13 +43,17 @@ jobs:
           docker build -t $ACR_LOGIN_SERVER/$IMAGE_NAME:${{ github.sha }} .
           docker push $ACR_LOGIN_SERVER/$IMAGE_NAME:${{ github.sha }}
 
+      - name: Set image SHA output
+        id: set_sha
+        run: echo "sha=${GITHUB_SHA}" >> $GITHUB_OUTPUT
+
   deploy_test:
     name: Deploy to TEST
     needs: build
-    if: github.ref == 'refs/heads/test'
     runs-on: ubuntu-latest
     environment:
       name: TEST
+      url: https://modernweb-app.gentleglacier-8011cd2d.eastus.azurecontainerapps.io/
 
     steps:
       - name: Checkout code
@@ -61,25 +69,15 @@ jobs:
           az containerapp update \
             --name $TEST_CONTAINER_APP_NAME \
             --resource-group $RESOURCE_GROUP \
-            --image $ACR_LOGIN_SERVER/$IMAGE_NAME:${{ github.sha }}
-
-      - name: Create Pull Request to Main
-        uses: repo-sync/pull-request@v2
-        with:
-          source_branch: test
-          destination_branch: main
-          pr_title: "Promote to Production"
-          pr_body: "Auto-generated PR to promote version `${{ github.sha }}` to main."
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+            --image $ACR_LOGIN_SERVER/$IMAGE_NAME:${{ needs.build.outputs.image_sha }}
 
   deploy_prod:
     name: Deploy to PROD
-    needs: build
-    if: github.ref == 'refs/heads/main'
+    needs: [build, deploy_test]
     runs-on: ubuntu-latest
     environment:
       name: PROD
-      url: https://modernweb-prod.azurecontainerapps.io
+      url: https://modernweb-prod.gentleglacier-8011cd2d.eastus.azurecontainerapps.io/
 
     steps:
       - name: Checkout code
@@ -95,4 +93,23 @@ jobs:
           az containerapp update \
             --name $PROD_CONTAINER_APP_NAME \
             --resource-group $RESOURCE_GROUP \
-            --image $ACR_LOGIN_SERVER/$IMAGE_NAME:${{ github.sha }}
+            --image $ACR_LOGIN_SERVER/$IMAGE_NAME:${{ needs.build.outputs.image_sha }}
+
+  promote_to_main:
+    name: Create Pull Request test → main
+    needs: deploy_prod
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3  # <-- Required so the repo exists!
+
+      - name: Create Pull Request
+        uses: repo-sync/pull-request@v2
+        with:
+          source_branch: test
+          destination_branch: main
+          pr_title: Promote stable version to main
+          pr_body: |
+            Auto-generated PR for image SHA `${{ needs.build.outputs.image_sha }}`
+          github_token: ${{ secrets.GITHUB_TOKEN }}
