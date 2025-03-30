@@ -33,7 +33,7 @@ jobs:
       - name: Log in to ACR
         run: az acr login --name $ACR_NAME
 
-      - name: Build and Push Docker Image
+      - name: Build and Push Docker Image (SHA-tagged only)
         working-directory: ./backend
         run: |
           docker build -t $ACR_LOGIN_SERVER/$IMAGE_NAME:${{ github.sha }} .
@@ -69,7 +69,7 @@ jobs:
           source_branch: test
           destination_branch: main
           pr_title: "Promote to Production"
-          pr_body: "Auto-generated PR to promote version `${{ github.sha }}` to main."
+          pr_body: "Auto-generated PR to promote image `${{ github.sha }}` to production."
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
   deploy_prod:
