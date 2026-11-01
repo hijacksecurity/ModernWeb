@@ -226,3 +226,26 @@ resource "azurerm_role_assignment" "container_app_acr_pull" {
   principal_id         = azurerm_container_app.prod.identity[0].principal_id
 }
 
+
+# Audit-logging server parameters for both PostgreSQL Flexible Servers
+locals {
+  pg_audit_parameters = {
+    "log_connections"            = "on"
+    "log_checkpoints"            = "on"
+    "connection_throttle.enable" = "on"
+  }
+}
+
+resource "azurerm_postgresql_flexible_server_configuration" "main_audit" {
+  for_each  = local.pg_audit_parameters
+  name      = each.key
+  server_id = azurerm_postgresql_flexible_server.main.id
+  value     = each.value
+}
+
+resource "azurerm_postgresql_flexible_server_configuration" "prod_audit" {
+  for_each  = local.pg_audit_parameters
+  name      = each.key
+  server_id = azurerm_postgresql_flexible_server.prod.id
+  value     = each.value
+}
